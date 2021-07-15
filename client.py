@@ -75,14 +75,14 @@ class DHCPDiscover:
         self.MAC = MAC
         self.packet = b''
         self.create_transaction_ID()
-        self.transactionID = binascii.unhexlify(self.transactionID)
+        self.transaction_ID = binascii.unhexlify(self.transaction_ID)
 
     def create_transaction_ID(self):
         ID = b''
         for i in range(4):
             t = randint(0, 255)
             ID += hex(t)[2:].zfill(2)
-        self.transactionID = ID
+        self.transaction_ID = ID
 
     def buildPacket(self):
         packet = b''
@@ -90,7 +90,7 @@ class DHCPDiscover:
         packet += b'\x01'  # Hardware type: Ethernet
         packet += b'\x06'  # Hardware address length: 6
         packet += b'\x00'  # Hops: 0
-        packet += self.transactionID  # Transaction ID
+        packet += self.transaction_ID  # Transaction ID
         packet += b'\x00\x00'  # Seconds elapsed: 0
         packet += b'\x80\x00'  # BOOT-P flags: 0x8000 (Broadcast) + reserved flags
         packet += b'\x00\x00\x00\x00'  # Client IP address: 0.0.0.0
@@ -105,8 +105,43 @@ class DHCPDiscover:
         packet += b'\x00' * 125  # Boot file name not given
         packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
         packet += b'\x35\x01\x01'  # Option: (t=53,l=1) DHCP Message Type = DHCP Discover
-        # packet += b'\x3d\x06\x00\x26\x9e\x04\x1e\x9b'   #Option: (t=61,l=6) Client identifier
-        packet += b'\x3d\x06' + macB
+        packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
+        packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
+        packet += b'\xff'  # End Option
+
+        self.packet = packet
+
+
+class DHCPRequest:
+    def __init__(self, MAC, transaction_ID):
+        self.MAC = MAC
+        self.packet = b''
+        self.transaction_ID = transaction_ID
+
+    def buildPacket(self, requested_IP, DHCPServer_ID):
+        packet = b''
+        packet += b'\x01'  # Message type: Boot Request (1)
+        packet += b'\x01'  # Hardware type: Ethernet
+        packet += b'\x06'  # Hardware address length: 6
+        packet += b'\x00'  # Hops: 0
+        packet += self.transaction_ID  # Transaction ID
+        packet += b'\x00\x00'  # Seconds elapsed: 0
+        packet += b'\x80\x00'  # BOOT-P flags: 0x8000 (Broadcast) + reserved flags
+        packet += b'\x00\x00\x00\x00'  # Client IP address: 0.0.0.0
+        packet += b'\x00\x00\x00\x00'  # Your (client) IP address: 0.0.0.0
+        packet += b'\x00\x00\x00\x00'  # Next server IP address: 0.0.0.0
+        packet += b'\x00\x00\x00\x00'  # Relay agent IP address: 0.0.0.0
+        macB = mac_to_bytes(self.MAC)
+        packet += macB
+        packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
+        packet += b'\x00' * 67  # Server host name not given
+        packet += b'\x00' * 125  # Boot file name not given
+        packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
+
+        packet += b'\x35\x01\x03'  # Option: (t=53,l=1) DHCP Message Type = DHCP Request
+        packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
+        packet += b'\x32\x04' + requested_IP  # Option: (t=50,l=1) Requested IP Address
+        packet += b'\x36\x04' + DHCPServer_ID  # Option: (t=54,l=1) DHCP Server Identifier
         packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
         packet += b'\xff'  # End Option
 
@@ -118,6 +153,9 @@ def main():
     discover = DHCPDiscover(config.MAC)
     discover.buildPacket()
 
+    request = DHCPRequest(config.MAC, discover.transaction_ID)
+    request.buildPacket(config.offered_IP, config.DHCPServer_ID)
+
 
 if __name__ == '__main__':
-    pass
+    main()
