@@ -1,0 +1,25 @@
+{
+  "pool_mode": "range",
+
+  "range":{
+    "from": "192.168.1.2",
+    "to": "192.168.1.10"
+  },
+
+  "subnet":{
+    "ip_block": "192.168.1.0",
+    "subnet_mask": "255.255.255.224"
+  },
+
+  "lease_time": 10,
+
+  "reservation_list": {
+    "00:1a:6x:84:45:e6": "ip1",
+    "a9:1b:6x:84:45:e6": "ip2",
+    "b8:1c:6x:84:45:e6": "ip3"
+  },
+
+  "black_list": [
+    "f8:0m:6x:84:41:e6", "f8:0m:6x:84:41:e7"
+  ]
+}
