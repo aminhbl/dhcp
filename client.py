@@ -42,49 +42,44 @@ def ip_to_str(IP):
     return IP_str
 
 
+def create_transaction_ID():
+    ID = ''
+    for i in range(4):
+        x = randint(0, 255)
+        ID += '{:02x}'.format(int(x))
+    return binascii.unhexlify(ID)
+
+
 class DHCPConfig:
     def __init__(self):
         self.MAC = str(hex(get_mac()))[2:]
+        self.packet = b''
+        self.transaction_ID = create_transaction_ID()
         self.IP = '0.0.0.0'
         self.offered_IP = ''
-        self.lease_time = '0'
+        self.lease_time = ''
         self.subnet_mask = '0.0.0.0'
         self.router = ''
         self.DNS = []
         self.DHCPServer_ID = ''
         self.gateway_IP = ''
+        self.ack = False
 
-    def DHCP_Offer(self, data, transID):
-        if data[4:8] == transID:
-            self.offered_IP = '.'.join(map(lambda x: str(x), data[16:20]))
-            self.gateway_IP = '.'.join(map(lambda x: str(x), data[20:24]))
-            self.DHCPServer_ID = '.'.join(map(lambda x: str(x), data[245:249]))
-            self.lease_time = str(struct.unpack('!L', data[251:255])[0])
-            self.router = '.'.join(map(lambda x: str(x), data[257:261]))
-            self.subnet_mask = '.'.join(map(lambda x: str(x), data[263:267]))
-            dns_num = int(data[268] / 4)
-            for i in range(0, 4 * dns_num, 4):
-                self.DNS.append('.'.join(map(lambda x: str(x), data[269 + i:269 + i + 4])))
+    def DHCP_receive(self, data):
+        if data[4:8] == self.transaction_ID:
+            if data[242] == 2:
+                self.offered_IP = '.'.join(map(lambda x: str(x), data[16:20]))
+                self.gateway_IP = '.'.join(map(lambda x: str(x), data[20:24]))
+                self.subnet_mask = '.'.join(map(lambda x: str(x), data[245:249]))
+                self.router = '.'.join(map(lambda x: str(x), data[251:255]))
+                for i in range(0, 8, 4):
+                    self.DNS.append('.'.join(map(lambda x: str(x), data[257 + i:257 + i + 4])))
+                self.lease_time = str(int(binascii.hexlify(data[267:271]), 16))
+                self.DHCPServer_ID = '.'.join(map(lambda x: str(x), data[273:277]))
+            elif data[242] == 5:
+                self.ack = True
 
-    def DHCP_ACK(self):
-        pass
-
-
-class DHCPDiscover:
-    def __init__(self, MAC):
-        self.MAC = MAC
-        self.packet = b''
-        self.create_transaction_ID()
-        self.transaction_ID = binascii.unhexlify(self.transaction_ID)
-
-    def create_transaction_ID(self):
-        ID = b''
-        for i in range(4):
-            t = randint(0, 255)
-            ID += hex(t)[2:].zfill(2)
-        self.transaction_ID = ID
-
-    def buildPacket(self):
+    def DHCPDiscover(self):
         packet = b''
         packet += b'\x01'  # Message type: Boot Request (1)
         packet += b'\x01'  # Hardware type: Ethernet
@@ -97,7 +92,6 @@ class DHCPDiscover:
         packet += b'\x00\x00\x00\x00'  # Your (client) IP address: 0.0.0.0
         packet += b'\x00\x00\x00\x00'  # Next server IP address: 0.0.0.0
         packet += b'\x00\x00\x00\x00'  # Relay agent IP address: 0.0.0.0
-        # packet += b'\x00\x26\x9e\x04\x1e\x9b'   #Client MAC address: 00:26:9e:04:1e:9b
         macB = mac_to_bytes(self.MAC)
         packet += macB
         packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
@@ -111,14 +105,7 @@ class DHCPDiscover:
 
         self.packet = packet
 
-
-class DHCPRequest:
-    def __init__(self, MAC, transaction_ID):
-        self.MAC = MAC
-        self.packet = b''
-        self.transaction_ID = transaction_ID
-
-    def buildPacket(self, requested_IP, DHCPServer_ID):
+    def DHCPRequest(self, DHCPServer_ID):
         packet = b''
         packet += b'\x01'  # Message type: Boot Request (1)
         packet += b'\x01'  # Hardware type: Ethernet
@@ -140,8 +127,8 @@ class DHCPRequest:
 
         packet += b'\x35\x01\x03'  # Option: (t=53,l=1) DHCP Message Type = DHCP Request
         packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
-        packet += b'\x32\x04' + requested_IP  # Option: (t=50,l=1) Requested IP Address
-        packet += b'\x36\x04' + DHCPServer_ID  # Option: (t=54,l=1) DHCP Server Identifier
+        packet += b'\x32\x04' + ip_to_hex(self.offered_IP)  # Option: (t=50,l=4) Requested IP Address
+        packet += b'\x36\x04' + DHCPServer_ID  # Option: (t=54,l=4) DHCP Server Identifier
         packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
         packet += b'\xff'  # End Option
 
@@ -150,12 +137,17 @@ class DHCPRequest:
 
 def main():
     config = DHCPConfig()
-    discover = DHCPDiscover(config.MAC)
-    discover.buildPacket()
-
-    request = DHCPRequest(config.MAC, discover.transaction_ID)
-    request.buildPacket(config.offered_IP, config.DHCPServer_ID)
 
 
 if __name__ == '__main__':
     main()
+
+
+
+    # lease = '3600'
+    # lea_hex = hex(int(lease))[2:]
+    # lea_hex = '{:08x}'.format(int(lease))
+    # print(lea_hex)
+    # test = binascii.unhexlify(lea_hex)
+    # print(str(test[0]))
+
