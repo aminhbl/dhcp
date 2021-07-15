@@ -14,14 +14,6 @@ def mac_to_bytes(mac):
     return macB
 
 
-def mac_to_str(macB):
-    mac = []
-    for i in range(6):
-        mac.append(struct.unpack('!B', macB[i:i + 1])[0])
-    macS = ':'.join(map(lambda x: hex(x)[2:], mac))
-    return macS
-
-
 def ip_to_hex(IP):
     # '10.0.0.1'
     IP_hex = ''.join(map(lambda x: '{:02x}'.format(int(x)), IP.split('.')))
@@ -95,9 +87,10 @@ class DHCPConfig:
         macB = mac_to_bytes(self.MAC)
         packet += macB
         packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
-        packet += b'\x00' * 67  # Server host name not given
-        packet += b'\x00' * 125  # Boot file name not given
+        packet += b'\x00' * 64  # Server host name not given
+        packet += b'\x00' * 128  # Boot file name not given
         packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
+
         packet += b'\x35\x01\x01'  # Option: (t=53,l=1) DHCP Message Type = DHCP Discover
         packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
         packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
@@ -121,8 +114,8 @@ class DHCPConfig:
         macB = mac_to_bytes(self.MAC)
         packet += macB
         packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
-        packet += b'\x00' * 67  # Server host name not given
-        packet += b'\x00' * 125  # Boot file name not given
+        packet += b'\x00' * 64  # Server host name not given
+        packet += b'\x00' * 128  # Boot file name not given
         packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
 
         packet += b'\x35\x01\x03'  # Option: (t=53,l=1) DHCP Message Type = DHCP Request
