@@ -48,6 +48,16 @@ def lease_to_hex(lease_time):
     return binascii.unhexlify(lea_hex)
 
 
+def name_to_hex(name):
+    nameX = binascii.hexlify(name.encode())
+    nameXB = binascii.unhexlify(nameX)
+    return nameXB
+
+
+def nameLen_to_hex(name):
+    lenHex = '{:02x}'.format(int(len(name)))
+    return binascii.unhexlify(lenHex)
+
 def mac_to_str(macB):
     mac = []
     for i in range(6):

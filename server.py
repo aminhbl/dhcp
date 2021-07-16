@@ -57,6 +57,9 @@ def handle(data, server, configs):
     srv_conf.DHCP_receive(req_data)
     sleep(1)
 
+    if srv_conf.server_unMatch:
+        return
+
     srv_conf.DHCPAck()
     server.sendto(srv_conf.packet, ('<broadcast>', 68))
     sleep(1)
@@ -143,8 +146,9 @@ class ServerConfig:
         # receive
         self.transaction_ID = b''
         self.client_mac = ''
-        self.host_name = 'fix this'
+        self.host_name = ''
         self.req = False
+        self.server_unMatch = False
 
         # extract
         server_config = configs.cnf
@@ -190,15 +194,17 @@ class ServerConfig:
         if data[242] == 1:
             self.transaction_ID = data[4:8]  # in byte form
             self.client_mac = mac_to_str(data[28:34])
-            print(self.client_mac)
+            nameLen = data[257]
+            self.host_name = data[258:258 + nameLen].decode()
             self.assign_ip()
-            print(self.your_IP)
         elif data[242] == 3:
             if self.Server_ID == data[259:263]:
                 if self.transaction_ID == data[4:8]:
                     self.req = True
                     self.client_mac = mac_to_str(data[28:34])
                     self.assign_ip()
+            else:
+                self.server_unMatch = True
 
     def DHCPOffer(self):
         packet = b''

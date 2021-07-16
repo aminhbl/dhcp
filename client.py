@@ -84,6 +84,7 @@ class DHCPConfig:
         packet += b'\x35\x01\x01'  # Option: (t=53,l=1) DHCP Message Type = DHCP Discover
         packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
         packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
+        packet += b'\x0c' + nameLen_to_hex(self.hostname) + name_to_hex(self.hostname)
         packet += b'\xff'  # End Option
 
         self.packet = packet
@@ -113,6 +114,7 @@ class DHCPConfig:
         packet += b'\x32\x04' + ip_to_hex(self.offered_IP)  # Option: (t=50,l=4) Requested IP Address
         packet += b'\x36\x04' + ip_to_hex(self.DHCPServer_ID)  # Option: (t=54,l=4) DHCP Server Identifier
         packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
+        packet += b'\x0c' + nameLen_to_hex(self.hostname) + name_to_hex(self.hostname)
         packet += b'\xff'  # End Option
 
         self.packet = packet
@@ -122,9 +124,12 @@ def main():
     config = DHCPConfig()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
         client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        client.settimeout(100)
+        client.settimeout(150)
         try:
             client.bind((config.IP, 68))
+
+            # port = randint(1024, 5000)
+            # client.bind((config.IP, port))
         except Exception as e:
             print(e)
             client.close()
@@ -146,10 +151,12 @@ def main():
                     config.DHCPRequest()
                     client.sendto(config.packet, ('<broadcast>', 67))
                     print('\n[Socket] DHCP Request Sent\n')
+                    config.offer = False
                 if config.ack:
                     if config.IP == '0.0.0.0':
                         print('\n[Socket] DHCP Ack Received\n')
                         config.show()
+                        config.ack = False
             except socket.timeout:
                 config.ack = False
                 config.offer = False
