@@ -5,7 +5,7 @@ import time
 import threading
 
 
-class DHCPConfig:
+class DHCPClient:
     def __init__(self):
         self.MAC = str(hex(get_mac()))[2:]
         self.hostname = input('Hostname: ')
@@ -29,10 +29,10 @@ class DHCPConfig:
     def show(self):
         print('Client configuration:')
         print('Hostname: {} | MAC: {} | IP: {} | Lease Time: {} | DNS : {}'
-              .format(self.hostname, self.MAC, self.IP, self.lease_time, self.DNS))
+              .format(self.hostname, mac_split(self.MAC), self.IP, self.lease_time, self.DNS))
         print()
 
-    def DHCP_receive(self, data):
+    def DHCPReceive(self, data):
         if data[4:8] == self.transaction_ID:
             if data[242] == 2:
                 self.offer = True
@@ -61,134 +61,121 @@ class DHCPConfig:
             return True
         return False
 
-    def DHCPDiscover(self):
+    def DHCPBody(self):
         packet = b''
-        packet += b'\x01'  # Message type: Boot Request (1)
-        packet += b'\x01'  # Hardware type: Ethernet
-        packet += b'\x06'  # Hardware address length: 6
-        packet += b'\x00'  # Hops: 0
-        packet += self.transaction_ID  # Transaction ID
-        packet += b'\x00\x00'  # Seconds elapsed: 0
-        packet += b'\x80\x00'  # BOOT-P flags: 0x8000 (Broadcast) + reserved flags
-        packet += b'\x00\x00\x00\x00'  # Client IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Your (client) IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Next server IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Relay agent IP address: 0.0.0.0
-        macB = mac_to_bytes(self.MAC)
-        packet += macB
-        packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
-        packet += b'\x00' * 64  # Server host name not given
-        packet += b'\x00' * 128  # Boot file name not given
-        packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
+        packet += b'\x01'
+        packet += b'\x01'
+        packet += b'\x06'
+        packet += b'\x00'
+        packet += self.transaction_ID
+        packet += b'\x00\x00'
+        packet += b'\x80\x00'
+        packet += b'\x00\x00\x00\x00'
+        packet += b'\x00\x00\x00\x00'
+        packet += b'\x00\x00\x00\x00'
+        packet += b'\x00\x00\x00\x00'
+        packet += mac_to_bytes(self.MAC)
+        packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        packet += b'\x00' * 64
+        packet += b'\x00' * 128
+        packet += b'\x63\x82\x53\x63'
+        return packet
 
-        packet += b'\x35\x01\x01'  # Option: (t=53,l=1) DHCP Message Type = DHCP Discover
-        packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
-        packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
+    def DHCPDiscover(self):
+        packet = self.DHCPBody()
+        # options
+        packet += b'\x35\x01\x01'
+        packet += b'\x3d\x06' + mac_to_bytes(self.MAC)
+        packet += b'\x37\x03\x01\x03\x06'
         packet += b'\x0c' + nameLen_to_hex(self.hostname) + name_to_hex(self.hostname)
-        packet += b'\xff'  # End Option
+        packet += b'\xff'
 
         self.packet = packet
 
     def DHCPRequest(self):
-        packet = b''
-        packet += b'\x01'  # Message type: Boot Request (1)
-        packet += b'\x01'  # Hardware type: Ethernet
-        packet += b'\x06'  # Hardware address length: 6
-        packet += b'\x00'  # Hops: 0
-        packet += self.transaction_ID  # Transaction ID
-        packet += b'\x00\x00'  # Seconds elapsed: 0
-        packet += b'\x80\x00'  # BOOT-P flags: 0x8000 (Broadcast) + reserved flags
-        packet += b'\x00\x00\x00\x00'  # Client IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Your (client) IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Next server IP address: 0.0.0.0
-        packet += b'\x00\x00\x00\x00'  # Relay agent IP address: 0.0.0.0
-        macB = mac_to_bytes(self.MAC)
-        packet += macB
-        packet += b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # Client hardware address padding: 00000000000000000000
-        packet += b'\x00' * 64  # Server host name not given
-        packet += b'\x00' * 128  # Boot file name not given
-        packet += b'\x63\x82\x53\x63'  # Magic cookie: DHCP
-
-        packet += b'\x35\x01\x03'  # Option: (t=53,l=1) DHCP Message Type = DHCP Request
-        packet += b'\x3d\x06' + macB  # Option: (t=61,l=6) Client identifier
-        packet += b'\x32\x04' + ip_to_hex(self.offered_IP)  # Option: (t=50,l=4) Requested IP Address
-        packet += b'\x36\x04' + ip_to_hex(self.DHCPServer_ID)  # Option: (t=54,l=4) DHCP Server Identifier
-        packet += b'\x37\x03\x01\x03\x06'  # Option: (t=55,l=3) Parameter Request List: Subnet Mask, Router, DNS
+        packet = self.DHCPBody()
+        # options
+        packet += b'\x35\x01\x03'
+        packet += b'\x3d\x06' + mac_to_bytes(self.MAC)
+        packet += b'\x32\x04' + ip_to_hex(self.offered_IP)
+        packet += b'\x36\x04' + ip_to_hex(self.DHCPServer_ID)
+        packet += b'\x37\x03\x01\x03\x06'
         packet += b'\x0c' + nameLen_to_hex(self.hostname) + name_to_hex(self.hostname)
-        packet += b'\xff'  # End Option
+        packet += b'\xff'
 
         self.packet = packet
 
 
 def main():
-    config = DHCPConfig()
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
-        client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        client.settimeout(150)
+    dhcpClient = DHCPClient()
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as skt:
+        skt.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        skt.settimeout(150)
         try:
-            client.bind((config.IP, 68))
+            skt.bind((dhcpClient.IP, 68))
 
             # port = randint(1024, 5000)
-            # client.bind((config.IP, port))
+            # skt.bind((dhcpClient.IP, port))
         except Exception as e:
             print(e)
-            client.close()
+            skt.close()
             exit()
 
-        config.DHCPDiscover()
-        client.sendto(config.packet, ('<broadcast>', 67))
+        dhcpClient.DHCPDiscover()
+        skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
         print('\n[Socket] DHCP Discover Sent\n')
 
-        config.dis_sent_time = int(time.time())
-        thread = threading.Thread(target=discover_timer, args=(config, client))
+        dhcpClient.dis_sent_time = int(time.time())
+        thread = threading.Thread(target=discover_timer, args=(dhcpClient, skt))
         thread.start()
 
         while True:
             try:
-                data = client.recv(1024)
-                config.DHCP_receive(data)
-                if config.offer:
-                    config.DHCPRequest()
-                    client.sendto(config.packet, ('<broadcast>', 67))
+                data = skt.recv(1024)
+                dhcpClient.DHCPReceive(data)
+                if dhcpClient.offer:
+                    dhcpClient.DHCPRequest()
+                    skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
                     print('\n[Socket] DHCP Request Sent\n')
-                    config.offer = False
-                if config.ack:
-                    if config.IP == '0.0.0.0':
+                    dhcpClient.offer = False
+                if dhcpClient.ack:
+                    if dhcpClient.IP == '0.0.0.0':
                         print('\n[Socket] DHCP Ack Received\n')
-                        config.show()
-                        config.ack = False
+                        dhcpClient.show()
+                        dhcpClient.ack = False
             except socket.timeout:
-                config.ack = False
-                config.offer = False
-                config.DHCPDiscover()
-                client.sendto(config.packet, ('<broadcast>', 67))
-                config.dis_sent_time = int(time.time())
+                dhcpClient.ack = False
+                dhcpClient.offer = False
+                dhcpClient.DHCPDiscover()
+                skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
+                dhcpClient.dis_sent_time = int(time.time())
                 print('[Socket Timeout] Discover Sent Again\n')
 
 
-def discover_timer(config, client):
+def discover_timer(dhcpClient, skt):
     while True:
         time.sleep(1)
-        if int(config.lease_time) > 0:
-            config.show()
-            config.lease_time = str(int(config.lease_time) - 1)
+        if int(dhcpClient.lease_time) > 0:
+            dhcpClient.show()
+            dhcpClient.lease_time = str(int(dhcpClient.lease_time) - 1)
 
         current_time = int(time.time())
-        if current_time - config.dis_sent_time > config.initial_interval:
-            if config.IP == '0.0.0.0' or int(config.lease_time) == 0:
+        if current_time - dhcpClient.dis_sent_time > dhcpClient.initial_interval:
+            if dhcpClient.IP == '0.0.0.0' or int(dhcpClient.lease_time) == 0:
                 x = uniform(0.5, 1)
-                new_interval = config.initial_interval * 2 * x
-                if new_interval < config.backoff_cutoff and config.initial_interval != config.backoff_cutoff:
-                    config.initial_interval = int(new_interval)
+                new_interval = dhcpClient.initial_interval * 2 * x
+                if new_interval < dhcpClient.backoff_cutoff and dhcpClient.initial_interval != dhcpClient.backoff_cutoff:
+                    dhcpClient.initial_interval = int(new_interval)
                 else:
-                    config.initial_interval = config.backoff_cutoff
+                    dhcpClient.initial_interval = dhcpClient.backoff_cutoff
 
-                print('\n[Discover Timeout] Discover Sent Again\nNew Interval: {}\n'.format(config.initial_interval))
-                config.ack = False
-                config.offer = False
-                config.DHCPDiscover()
-                client.sendto(config.packet, ('<broadcast>', 67))
-                config.dis_sent_time = int(time.time())
+                print('\n[Discover Timeout] Discover Sent Again\nNew Interval: {}\n'
+                      .format(dhcpClient.initial_interval))
+                dhcpClient.ack = False
+                dhcpClient.offer = False
+                dhcpClient.DHCPDiscover()
+                skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
+                dhcpClient.dis_sent_time = int(time.time())
 
 
 if __name__ == '__main__':

@@ -49,7 +49,6 @@ def handle(data, server, configs):
         return
 
     srv_conf.DHCPOffer()
-    print(srv_conf.packet)
     server.sendto(srv_conf.packet, ('<broadcast>', 68))
     sleep(1)
 
@@ -80,7 +79,7 @@ class Configs:
         with lock:
             for mac in self.assigned:
                 print('hostname: {} | MAC: {} | IP: {} | EXP: {}'
-                      .format(self.assigned[mac].host_name, mac, self.assigned[mac].ip, self.assigned[mac].expire_time))
+                      .format(self.assigned[mac].host_name, mac_split(mac), self.assigned[mac].ip, self.assigned[mac].expire_time))
 
     def get_server_config(self):
         config = []

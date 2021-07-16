@@ -1,5 +1,6 @@
+from random import randint, choice
+from string import ascii_letters
 import struct
-from random import randint
 import binascii
 import socket
 from netaddr import IPNetwork
@@ -13,6 +14,18 @@ def mac_to_bytes(mac):
         m = int(mac[i:i + 2], 16)
         macB += struct.pack('!B', m)
     return macB
+
+
+def random_mac():
+    mac = ''
+    for _ in range(12):
+        chance = randint(0, 20)
+        if chance > 5:
+            x = randint(0, 10)
+        else:
+            x = choice(ascii_letters[0:6])
+        mac += str(x)
+    return mac
 
 
 def ip_to_hex(IP):
@@ -58,12 +71,22 @@ def nameLen_to_hex(name):
     lenHex = '{:02x}'.format(int(len(name)))
     return binascii.unhexlify(lenHex)
 
+
 def mac_to_str(macB):
     mac = []
     for i in range(6):
         mac.append(struct.unpack('!B', macB[i:i + 1])[0])
     macS = ''.join(map(lambda x: hex(x)[2:], mac))
     return macS
+
+
+def mac_split(mac):
+    if ':' in mac:
+        return mac
+    macS = []
+    for i in range(0, 12, 2):
+        macS.append(mac[i:i + 2])
+    return ':'.join(macS)
 
 
 def ips_range(start, end):
