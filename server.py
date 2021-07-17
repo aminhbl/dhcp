@@ -121,8 +121,8 @@ class Configs:
             print(self.ip_pool)
             for mac in self.assigned:
                 print('hostname: {} | MAC: {} | IP: {} | EXP: {}'
-                      .format(self.assigned[mac].host_name, mac_split(mac)
-                              , self.assigned[mac].ip, self.assigned[mac].expire_time))
+                      .format(self.assigned[mac].host_name, mac_split(mac),
+                              self.assigned[mac].ip, self.assigned[mac].expire_time))
 
 
 class IPData:
@@ -201,7 +201,7 @@ class DHCPServer:
 
     def DHCPBody(self):
         packet = b''
-        packet += b'\x01'
+        packet += b'\x02'
         packet += b'\x01'
         packet += b'\x06'
         packet += b'\x00'

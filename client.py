@@ -13,6 +13,7 @@ class DHCPClient:
         self.transaction_ID = create_transaction_ID()
         self.IP = '0.0.0.0'
         self.offered_IP = ''
+        self.fix_lease_time = '0'
         self.lease_time = '0'
         self.subnet_mask = '0.0.0.0'
         self.router = ''
@@ -47,6 +48,7 @@ class DHCPClient:
             elif data[242] == 5:
                 self.IP = '.'.join(map(lambda x: str(x), data[16:20]))
                 self.lease_time = str(int(binascii.hexlify(data[267:271]), 16))
+                self.fix_lease_time= self.lease_time
                 self.ack = True
 
     def discover_timer(self, start):
@@ -110,7 +112,7 @@ def main():
     dhcpClient = DHCPClient()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as skt:
         skt.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        skt.settimeout(150)
+        skt.settimeout(20)
         try:
             skt.bind((dhcpClient.IP, 68))
 
@@ -126,7 +128,7 @@ def main():
         print('\n[Socket] DHCP Discover Sent\n')
 
         dhcpClient.dis_sent_time = int(time.time())
-        thread = threading.Thread(target=discover_timer, args=(dhcpClient, skt))
+        thread = threading.Thread(target=timer, args=(dhcpClient, skt))
         thread.start()
 
         while True:
@@ -144,21 +146,40 @@ def main():
                         dhcpClient.show()
                         dhcpClient.ack = False
             except socket.timeout:
-                dhcpClient.ack = False
-                dhcpClient.offer = False
-                dhcpClient.DHCPDiscover()
-                skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
-                dhcpClient.dis_sent_time = int(time.time())
-                print('[Socket Timeout] Discover Sent Again\n')
+                if dhcpClient.offer:
+                    dhcpClient.ack = False
+                    dhcpClient.offer = False
+                    dhcpClient.DHCPDiscover()
+                    skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
+                    dhcpClient.dis_sent_time = int(time.time())
+                    print('[Socket Timeout] Discover Sent Again\n')
 
 
-def discover_timer(dhcpClient, skt):
+def timer(dhcpClient, skt):
     while True:
+        # TICK THE LEASE TIME
         time.sleep(1)
         if int(dhcpClient.lease_time) > 0:
             dhcpClient.show()
             dhcpClient.lease_time = str(int(dhcpClient.lease_time) - 1)
+            if int(dhcpClient.lease_time) == 0:
+                print('[EXPIRED]')
 
+        # RENEWING AND REBINDING 'TILL EXPIRED
+        if dhcpClient.IP != '0.0.0.0':
+            if int(dhcpClient.lease_time) == 0:
+                pass
+            # elif int(dhcpClient.lease_time) == int(dhcpClient.fix_lease_time) / 2:
+            #     dhcpClient.DHCPRequest()
+            #     skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
+            #     print('[RENEWING]\n[Socket] DHCP Request Sent\n')
+            # elif int(dhcpClient.lease_time) <= int(int(dhcpClient.fix_lease_time) * 1/8):
+            #     dhcpClient.DHCPDiscover()
+            #     skt.sendto(dhcpClient.packet, ('<broadcast>', 67))
+            #     dhcpClient.dis_sent_time = int(time.time())
+            #     print('[REBINDING]\n[Socket] Discover Sent Again\n')
+
+        # DHCP DISCOVER TIMEOUT
         current_time = int(time.time())
         if current_time - dhcpClient.dis_sent_time > dhcpClient.initial_interval:
             if dhcpClient.IP == '0.0.0.0' or int(dhcpClient.lease_time) == 0:
