@@ -2,8 +2,8 @@ from utils import *
 from time import sleep
 from json import load
 from random import randint
-import socket
 import threading
+import socket
 
 lock = threading.Lock()
 
@@ -29,9 +29,9 @@ def main():
 
         while True:
             data = server.recv(1024)
-            if data[242] == 1:
-                thread = threading.Thread(target=handle, args=(data, server, configs))
-                thread.start()
+            # if data[242] == 1:
+            thread = threading.Thread(target=handle, args=(data, server, configs))
+            thread.start()
             sleep(3)
 
 
@@ -46,16 +46,17 @@ def handle(data, server, configs):
     srv_conf = DHCPServer(configs)
     srv_conf.DHCPReceive(data)
 
-    if srv_conf.your_IP is None:
-        return
+    if data[242] == 1:
+        if srv_conf.your_IP is None:
+            return
 
-    srv_conf.DHCPOffer()
-    server.sendto(srv_conf.packet, ('<broadcast>', 68))
-    sleep(1)
+        srv_conf.DHCPOffer()
+        server.sendto(srv_conf.packet, ('<broadcast>', 68))
+        sleep(1)
 
-    req_data = server.recv(1024)
-    srv_conf.DHCPReceive(req_data)
-    sleep(1)
+        req_data = server.recv(1024)
+        srv_conf.DHCPReceive(req_data)
+        sleep(1)
 
     if srv_conf.server_unMatch:
         return
@@ -192,10 +193,11 @@ class DHCPServer:
             self.assign_ip()
         elif data[242] == 3:
             if self.Server_ID == data[259:263]:
-                if self.transaction_ID == data[4:8]:
-                    self.req = True
-                    self.client_mac = mac_to_str(data[28:34])
-                    self.assign_ip()
+                # if self.transaction_ID == data[4:8]:
+                self.transaction_ID = data[4:8]  # in byte form
+                self.req = True
+                self.client_mac = mac_to_str(data[28:34])
+                self.assign_ip()
             else:
                 self.server_unMatch = True
 

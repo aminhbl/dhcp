@@ -48,7 +48,7 @@ class DHCPClient:
             elif data[242] == 5:
                 self.IP = '.'.join(map(lambda x: str(x), data[16:20]))
                 self.lease_time = str(int(binascii.hexlify(data[267:271]), 16))
-                self.fix_lease_time= self.lease_time
+                self.fix_lease_time = self.lease_time
                 self.ack = True
 
     def discover_timer(self, start):
