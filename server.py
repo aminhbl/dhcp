@@ -30,9 +30,10 @@ def main():
         while True:
             data = server.recv(1024)
             # if data[242] == 1:
+            # port = addr[1]
             thread = threading.Thread(target=handle, args=(data, server, configs))
             thread.start()
-            sleep(3)
+            sleep(2)
 
 
 def show_assigned(configs):
